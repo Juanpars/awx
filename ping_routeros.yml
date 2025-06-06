@@ -1,8 +1,9 @@
 ---
-- name: Test MikroTik connectivity
+- name: Probar conexión con MikroTik
   hosts: all
   gather_facts: no
   tasks:
-    - name: Run command on MikroTik
+    - name: Ejecutar comando en MikroTik
       ansible.netcommon.cli_command:
         command: /system resource print
+
