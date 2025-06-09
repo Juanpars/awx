@@ -1,0 +1,17 @@
+---
+- name: Crear usuario con todos los permisos en MikroTik
+  hosts: all
+  gather_facts: no
+
+  vars:
+    nuevo_usuario: "juanpa"
+    nueva_contrasena: "linux"
+
+  tasks:
+    - name: Crear grupo full si no existe
+      ansible.netcommon.cli_command:
+        command: /user group add name=full policy=local,telnet,ssh,reboot,read,write,policy,test,winbox,password,sniff,sensitive,api,romon,sftp
+
+    - name: Crear nuevo usuario admin
+      ansible.netcommon.cli_command:
+        command: /user add name={{ nuevo_usuario }} password={{ nueva_contrasena }} group=full
