@@ -1,0 +1,23 @@
+---
+- name: Reasignar IP en ether2 (modo forzado y visible)
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Eliminar IPs existentes en ether2 (si hay)
+      ansible.netcommon.cli_command:
+        command: /ip address remove [find interface=ether2]
+      ignore_errors: true
+
+    - name: Asignar nueva IP
+      ansible.netcommon.cli_command:
+        command: /ip address add address=192.168.100.16/24 interface=ether2
+
+    - name: Verificar IP asignada
+      ansible.netcommon.cli_command:
+        command: /ip address print where interface=ether2
+      register: ip_check
+
+    - name: Mostrar resultado
+      debug:
+        var: ip_check.stdout_lines
