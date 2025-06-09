@@ -4,6 +4,12 @@
   gather_facts: no
 
   tasks:
-    - name: Configurar IP en ether1
+    - name: Ejecutar comando IP
       ansible.netcommon.cli_command:
         command: /ip address add address=192.168.100.15/24 interface=ether1
+        check_rc: true
+      register: resultado_ip
+
+    - name: Mostrar salida del MikroTik
+      debug:
+        var: resultado_ip
