@@ -1,0 +1,9 @@
+---
+- name: Asignar IP a ether1 en MikroTik
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Configurar IP en ether1
+      ansible.netcommon.cli_command:
+        command: /ip address add address=192.168.100.15/24 interface=ether1
