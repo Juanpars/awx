@@ -1,21 +1,26 @@
 ---
-- name: Configurar SNMP en MikroTik
+- name: Configurar SNMP OpenTI en MikroTik
   hosts: all
   gather_facts: no
 
   vars:
-    snmp_community: public
-    snmp_contact: "OPEN TI"
-    snmp_location: "GTO, SJI"
+    snmp_community: OpenTI-Pub
+    snmp_contact: "sitemaster@openti.mx"
+    snmp_location: "SJI"
+    snmp_addresses: "10.0.0.0/8"
 
   tasks:
-    - name: Habilitar SNMP
+    - name: Habilitar SNMP globalmente
       ansible.netcommon.cli_command:
         command: /snmp set enabled=yes
 
-    - name: Configurar comunidad SNMP
+    - name: Eliminar comunidades SNMP existentes (opcional)
       ansible.netcommon.cli_command:
-        command: /snmp community set [find] name={{ snmp_community }}
+        command: /snmp community remove [find]
+
+    - name: Agregar comunidad SNMP OpenTI-Pub habilitada
+      ansible.netcommon.cli_command:
+        command: /snmp community add name={{ snmp_community }} addresses={{ snmp_addresses }} read-access=yes disabled=no
 
     - name: Configurar contacto SNMP
       ansible.netcommon.cli_command:
@@ -30,6 +35,16 @@
         command: /snmp print
       register: snmp_conf
 
-    - name: Mostrar salida en AWX
+    - name: Mostrar comunidades SNMP
+      ansible.netcommon.cli_command:
+        command: /snmp community print
+      register: snmp_community_conf
+
+    - name: Mostrar salida en AWX (SNMP)
       debug:
         var: snmp_conf.stdout_lines
+
+    - name: Mostrar salida en AWX (community)
+      debug:
+        var: snmp_community_conf.stdout_lines
+
