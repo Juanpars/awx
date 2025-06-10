@@ -1,0 +1,35 @@
+---
+- name: Configurar SNMP en MikroTik
+  hosts: all
+  gather_facts: no
+
+  vars:
+    snmp_community: public
+    snmp_contact: "OPEN TI"
+    snmp_location: "Mexico, Sucursal Centro"
+
+  tasks:
+    - name: Habilitar SNMP
+      ansible.netcommon.cli_command:
+        command: /snmp set enabled=yes
+
+    - name: Configurar comunidad SNMP
+      ansible.netcommon.cli_command:
+        command: /snmp community set [find] name={{ snmp_community }}
+
+    - name: Configurar contacto SNMP
+      ansible.netcommon.cli_command:
+        command: /snmp set contact="{{ snmp_contact }}"
+
+    - name: Configurar ubicación SNMP
+      ansible.netcommon.cli_command:
+        command: /snmp set location="{{ snmp_location }}"
+
+    - name: Mostrar configuración SNMP
+      ansible.netcommon.cli_command:
+        command: /snmp print
+      register: snmp_conf
+
+    - name: Mostrar salida en AWX
+      debug:
+        var: snmp_conf.stdout_lines
