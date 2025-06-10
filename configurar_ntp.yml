@@ -1,0 +1,31 @@
+---
+- name: Configurar NTP y zona horaria México en MikroTik
+  hosts: all
+  gather_facts: no
+
+  vars:
+    ntp_servers:
+      - 132.163.96.5
+      - 132.163.97.1
+
+  tasks:
+    - name: Establecer zona horaria de México
+      ansible.netcommon.cli_command:
+        command: /system clock set time-zone-name=America/Mexico_City
+
+    - name: Habilitar el cliente NTP
+      ansible.netcommon.cli_command:
+        command: /system ntp client set enabled=yes
+
+    - name: Establecer servidores NTP
+      ansible.netcommon.cli_command:
+        command: /system ntp client set primary-ntp={{ ntp_servers[0] }} secondary-ntp={{ ntp_servers[1] }}
+
+    - name: Verificar configuración NTP
+      ansible.netcommon.cli_command:
+        command: /system ntp client print
+      register: ntp_status
+
+    - name: Mostrar configuración NTP en la salida
+      debug:
+        var: ntp_status.stdout_lines
