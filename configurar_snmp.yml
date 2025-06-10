@@ -6,7 +6,7 @@
   vars:
     snmp_community: public
     snmp_contact: "OPEN TI"
-    snmp_location: "Mexico, Sucursal Centro"
+    snmp_location: "GTO, SJI"
 
   tasks:
     - name: Habilitar SNMP
