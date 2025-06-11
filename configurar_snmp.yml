@@ -1,70 +1,63 @@
 ---
-- name: Configurar SNMP MikroTik igual que Winbox
+- name: Configuración SNMP completa y habilitada en MikroTik
   hosts: all
   gather_facts: no
 
   vars:
+    snmp_community: "OpenTI-Pub"
+    snmp_addresses: "10.0.0.0/8"
     snmp_contact: "sitemaster@openti.mx"
     snmp_location: "SJI"
-    snmp_trap_community: "OpenTI-Pub"
-    snmp_trap_version: "1"
+    snmp_trap_version: 1
     snmp_trap_generators: "temp-exception"
-    snmp_trap_interfaces: ""
-    snmp_src_address: "::"   
-    snmp_engine_id: ""       
 
   tasks:
-    - name: Habilitar SNMP global
+    - name: Habilitar SNMP globalmente
       ansible.netcommon.cli_command:
-        command: /snmp set enabled=yes
+        command: "/snmp set enabled=yes"
+
+    - name: Crear comunidad SNMP (habilitada)
+      ansible.netcommon.cli_command:
+        command: >
+          /snmp community add name={{ snmp_community }}
+          addresses={{ snmp_addresses }}
+          read-access=yes disabled=no
 
     - name: Configurar contacto SNMP
       ansible.netcommon.cli_command:
-        command: /snmp set contact="{{ snmp_contact }}"
+        command: "/snmp set contact=\"{{ snmp_contact }}\""
 
     - name: Configurar ubicación SNMP
       ansible.netcommon.cli_command:
-        command: /snmp set location="{{ snmp_location }}"
+        command: "/snmp set location=\"{{ snmp_location }}\""
 
-    - name: Configurar Trap Community
+    - name: Configurar trap-community
       ansible.netcommon.cli_command:
-        command: /snmp set trap-community="{{ snmp_trap_community }}"
+        command: "/snmp set trap-community=\"{{ snmp_community }}\""
 
-    - name: Configurar Trap Version
+    - name: Configurar trap-version
       ansible.netcommon.cli_command:
-        command: /snmp set trap-version={{ snmp_trap_version }}
+        command: "/snmp set trap-version={{ snmp_trap_version }}"
 
-    - name: Configurar Trap Generators
+    - name: Configurar trap-generators
       ansible.netcommon.cli_command:
-        command: /snmp set trap-generators={{ snmp_trap_generators }}
+        command: "/snmp set trap-generators={{ snmp_trap_generators }}"
 
-    - name: Configurar Trap Interfaces
+    - name: Verificar SNMP habilitado
       ansible.netcommon.cli_command:
-        command: /snmp set trap-interfaces={{ snmp_trap_interfaces }}
+        command: "/snmp print"
+      register: resultado_snmp
 
-    - name: Configurar Src Address
+    - name: Verificar comunidades SNMP
       ansible.netcommon.cli_command:
-        command: /snmp set src-address={{ snmp_src_address }}
+        command: "/snmp community print"
+      register: resultado_community
 
-    - name: Configurar Engine ID (opcional)
-      ansible.netcommon.cli_command:
-        command: /snmp set engine-id="{{ snmp_engine_id }}"
-
-    - name: Mostrar configuración SNMP
-      ansible.netcommon.cli_command:
-        command: /snmp print
-      register: snmp_conf
-
-    - name: Mostrar comunidades SNMP
-      ansible.netcommon.cli_command:
-        command: /snmp community print
-      register: snmp_community_conf
-
-    - name: Mostrar salida en AWX (SNMP)
+    - name: Mostrar resultado SNMP global en AWX
       debug:
-        var: snmp_conf.stdout_lines
+        var: resultado_snmp.stdout_lines
 
-    - name: Mostrar salida en AWX (community)
+    - name: Mostrar comunidades SNMP en AWX
       debug:
-        var: snmp_community_conf.stdout_lines
+        var: resultado_community.stdout_lines
 
