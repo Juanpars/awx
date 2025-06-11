@@ -1,26 +1,22 @@
 ---
-- name: Configurar SNMP OpenTI en MikroTik
+- name: Configurar SNMP MikroTik igual que Winbox
   hosts: all
   gather_facts: no
 
   vars:
-    snmp_community: OpenTI-Pub
     snmp_contact: "sitemaster@openti.mx"
     snmp_location: "SJI"
-    snmp_addresses: "10.0.0.0/8"
+    snmp_trap_community: "OpenTI-Pub"
+    snmp_trap_version: "1"
+    snmp_trap_generators: "temp-exception"
+    snmp_trap_interfaces: ""
+    snmp_src_address: "::"   
+    snmp_engine_id: ""       
 
   tasks:
-    - name: Habilitar SNMP globalmente
+    - name: Habilitar SNMP global
       ansible.netcommon.cli_command:
         command: /snmp set enabled=yes
-
-    - name: Eliminar comunidades SNMP existentes (opcional)
-      ansible.netcommon.cli_command:
-        command: /snmp community remove [find]
-
-    - name: Agregar comunidad SNMP OpenTI-Pub habilitada
-      ansible.netcommon.cli_command:
-        command: /snmp community add name={{ snmp_community }} addresses={{ snmp_addresses }} read-access=yes disabled=no
 
     - name: Configurar contacto SNMP
       ansible.netcommon.cli_command:
@@ -29,6 +25,30 @@
     - name: Configurar ubicación SNMP
       ansible.netcommon.cli_command:
         command: /snmp set location="{{ snmp_location }}"
+
+    - name: Configurar Trap Community
+      ansible.netcommon.cli_command:
+        command: /snmp set trap-community="{{ snmp_trap_community }}"
+
+    - name: Configurar Trap Version
+      ansible.netcommon.cli_command:
+        command: /snmp set trap-version={{ snmp_trap_version }}
+
+    - name: Configurar Trap Generators
+      ansible.netcommon.cli_command:
+        command: /snmp set trap-generators={{ snmp_trap_generators }}
+
+    - name: Configurar Trap Interfaces
+      ansible.netcommon.cli_command:
+        command: /snmp set trap-interfaces={{ snmp_trap_interfaces }}
+
+    - name: Configurar Src Address
+      ansible.netcommon.cli_command:
+        command: /snmp set src-address={{ snmp_src_address }}
+
+    - name: Configurar Engine ID (opcional)
+      ansible.netcommon.cli_command:
+        command: /snmp set engine-id="{{ snmp_engine_id }}"
 
     - name: Mostrar configuración SNMP
       ansible.netcommon.cli_command:
