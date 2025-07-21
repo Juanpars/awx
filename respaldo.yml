@@ -1,0 +1,36 @@
+---
+- name: Respaldar configuración de routers MikroTik
+  hosts: all
+  gather_facts: no
+
+  vars:
+    backup_dir: "./respaldos_mikrotik"
+
+  tasks:
+    - name: Crear carpeta local para respaldos
+      local_action: file
+        path={{ backup_dir }}
+        state=directory
+        mode=0755
+
+    - name: Generar archivo de respaldo (.rsc) en router
+      ansible.netcommon.cli_command:
+        command: "/export file=backup_config"
+
+    - name: Esperar unos segundos para asegurar que el respaldo se genere
+      pause:
+        seconds: 5
+
+    - name: Descargar respaldo desde el router
+      ansible.builtin.fetch:
+        src: backup_config.rsc
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}-{{ ansible_date_time.iso8601_basic }}.rsc"
+        flat: yes
+
+    - name: Eliminar archivo de respaldo del router
+      ansible.netcommon.cli_command:
+        command: "/file remove backup_config.rsc"
+
+    - name: Mostrar confirmación de respaldo
+      debug:
+        msg: "Respaldo del router {{ inventory_hostname }} almacenado correctamente."
