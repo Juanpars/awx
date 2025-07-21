@@ -1,40 +1,32 @@
 ---
-# Playbook: Respaldar MikroTik y descargarlo al servidor Ansible
+# Playbook: Crear respaldo y mostrar link de descarga directamente desde el MikroTik
 
-- name: Crear respaldo y descargar desde MikroTik
+- name: Crear respaldo y entregar enlace directo
   hosts: all
   gather_facts: no
 
   tasks:
-    - name: Crear archivo de respaldo del sistema (.backup)
+    - name: Crear archivo de respaldo (.backup)
       community.routeros.command:
         commands:
           - /system backup save name={{ inventory_hostname }}_backup
       register: backup_result
       ignore_errors: yes
 
-    - name: Copiar respaldo al servidor Ansible (vía SCP)
-      ansible.netcommon.net_get:
-        src: "/{{ inventory_hostname }}_backup.backup"
-        dest: "./backups/{{ inventory_hostname }}_backup.backup"
-        protocol: scp
-      when: backup_result is succeeded
-
-    - name: Mostrar enlace para descargar respaldo
+    - name: Mostrar enlace FTP para descargar respaldo
       debug:
-        msg: "El respaldo está disponible en: http://192.168.160.105/backups/{{ inventory_hostname }}_backup.backup"
+        msg: "Descarga el respaldo desde: ftp://{{ inventory_hostname }}/{{ inventory_hostname }}_backup.backup"
       when: backup_result is succeeded
 
-    # Opcional: exportar configuración en texto legible (.rsc)
+    # Opcional: exportar configuración en texto (.rsc) y mostrar enlace
     - name: Exportar configuración en texto (.rsc)
       community.routeros.command:
         commands:
           - /export show-sensitive file={{ inventory_hostname }}_config
       when: backup_result is succeeded
 
-    - name: Copiar archivo de configuración .rsc
-      ansible.netcommon.net_get:
-        src: "/{{ inventory_hostname }}_config.rsc"
-        dest: "./backups/{{ inventory_hostname }}_config.rsc"
-        protocol: scp
+    - name: Mostrar enlace FTP para descargar .rsc
+      debug:
+        msg: "Descarga la configuración desde: ftp://{{ inventory_hostname }}/{{ inventory_hostname }}_config.rsc"
       when: backup_result is succeeded
+
