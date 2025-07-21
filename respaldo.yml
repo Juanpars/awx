@@ -1,11 +1,11 @@
 ---
-- name: Backup de configuración de routers MikroTik
+- name: Backup de configuración de routers MikroTik (versión SCP)
   hosts: all
   gather_facts: no
-
   vars:
     backup_dir: "/backups/mikrotik"
-    backup_format: "backup"  # Puede ser "backup" o "export"
+    backup_format: "export"  # "backup" o "export"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
 
   tasks:
     - name: Crear directorio de backups si no existe
@@ -22,47 +22,38 @@
 
     - name: Generar nombre del archivo de backup
       ansible.builtin.set_fact:
-        backup_filename: "{{ backup_dir }}/{{ inventory_hostname }}_{{ backup_timestamp }}.{{ backup_format }}.rsc"
+        backup_filename: "{{ backup_dir }}/{{ inventory_hostname }}_{{ backup_timestamp }}.{{ backup_format }}"
+        remote_filename: "{{ inventory_hostname }}_{{ backup_timestamp }}.{{ backup_format }}"
 
-    - name: Ejecutar comando de backup/export
+    - name: Ejecutar comando de export
       ansible.netcommon.cli_command:
         command: >
-          /export file={{ inventory_hostname }}_{{ backup_timestamp }}
+          /export file={{ remote_filename.split('.')[0] }}
           show-sensitive
       when: backup_format == "export"
 
-    - name: Ejecutar comando de backup (formato binario)
+    - name: Ejecutar comando de backup (binario)
       ansible.netcommon.cli_command:
         command: >
-          /system backup save name={{ inventory_hostname }}_{{ backup_timestamp }}.backup
+          /system backup save name={{ remote_filename }}
       when: backup_format == "backup"
 
-    - name: Esperar a que se genere el archivo en el router
+    - name: Esperar a que se genere el archivo
       ansible.builtin.pause:
-        seconds: 5
+        seconds: 10
 
-    - name: Descargar archivo de exportación
-      community.routeros.routeros_download:
-        src: "{{ inventory_hostname }}_{{ backup_timestamp }}.rsc"
-        dest: "{{ backup_filename }}"
-        host: "{{ inventory_hostname }}"
-        username: "{{ ansible_user }}"
-        password: "{{ ansible_password }}"
-      when: backup_format == "export"
-
-    - name: Descargar archivo de backup (binario)
-      community.routeros.routeros_download:
-        src: "{{ inventory_hostname }}_{{ backup_timestamp }}.backup"
-        dest: "{{ backup_filename }}"
-        host: "{{ inventory_hostname }}"
-        username: "{{ ansible_user }}"
-        password: "{{ ansible_password }}"
-      when: backup_format == "backup"
+    - name: Descargar archivo via SCP
+      ansible.builtin.command: >
+        scp {{ ansible_user }}@{{ inventory_hostname }}:/{{ remote_filename }} {{ backup_filename }}
+      args:
+        executable: /bin/bash
+      register: scp_result
+      ignore_errors: yes
 
     - name: Eliminar archivo temporal del router
       ansible.netcommon.cli_command:
         command: >
-          /file remove [find name~"{{ inventory_hostname }}_{{ backup_timestamp }}"] 
+          /file remove [find name~"{{ remote_filename.split('.')[0] }}"] 
 
     - name: Verificar archivo descargado
       ansible.builtin.stat:
@@ -70,7 +61,7 @@
       register: backup_file
       delegate_to: localhost
 
-    - name: Mostrar ubicación del backup
+    - name: Mostrar resultado
       ansible.builtin.debug:
         msg: "Backup guardado en {{ backup_filename }}"
       when: backup_file.stat.exists
