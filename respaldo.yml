@@ -5,6 +5,7 @@
 
   vars:
     backup_dir: "./respaldos_mikrotik"
+    backup_filename: "backup_config.rsc"
 
   tasks:
     - name: Crear carpeta local para respaldos
@@ -13,33 +14,33 @@
         state=directory
         mode=0755
 
-    - name: Generar archivo de respaldo (.rsc) en router (raíz del almacenamiento)
+    - name: Generar archivo de respaldo (.rsc) en router en raíz
       ansible.netcommon.cli_command:
-        command: "/export file=backup_config"
+        command: "/export file={{ backup_filename }}"
 
-    - name: Esperar para asegurar que el respaldo se genere
+    - name: Esperar que se genere el archivo correctamente
       pause:
         seconds: 5
 
-    - name: Asegurar que el archivo existe en el router (verificación)
+    - name: Verificar existencia del respaldo en el router
       ansible.netcommon.cli_command:
-        command: "/file print detail where name=\"backup_config.rsc\""
-      register: backup_verification
+        command: "/file print without-paging"
+      register: files_on_router
 
-    - name: Mostrar resultado de la verificación
+    - name: Mostrar archivos existentes en router (para depuración)
       debug:
-        var: backup_verification.stdout_lines
+        var: files_on_router.stdout_lines
 
-    - name: Descargar respaldo desde el router
+    - name: Descargar respaldo desde el router (con ruta absoluta)
       ansible.builtin.fetch:
-        src: "/backup_config.rsc"
+        src: "{{ backup_filename }}"
         dest: "{{ backup_dir }}/{{ inventory_hostname }}-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.rsc"
         flat: yes
 
     - name: Eliminar archivo de respaldo del router
       ansible.netcommon.cli_command:
-        command: "/file remove backup_config.rsc"
+        command: "/file remove {{ backup_filename }}"
 
-    - name: Mostrar confirmación de respaldo
+    - name: Confirmar respaldo exitoso
       debug:
         msg: "Respaldo del router {{ inventory_hostname }} almacenado correctamente."
