@@ -3,7 +3,7 @@
   hosts: all
   gather_facts: no
   vars:
-    backup_format: "export"  # "export" para texto o "backup" para binario
+    backup_format: "export"
     backup_prefix: "respaldo_awx"
 
   tasks:
@@ -11,39 +11,41 @@
       ansible.builtin.set_fact:
         is_mikrotik: "{{ ansible_network_os is defined and ansible_network_os == 'routeros' }}"
     
-    - name: Obtener fecha y hora para el nombre del backup
+    - name: Generar timestamp localmente
       ansible.builtin.set_fact:
-        backup_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
-      when: is_mikrotik
+        backup_timestamp: "{{ '%Y%m%d%H%M%S' | strftime }}"
+      delegate_to: localhost
+      run_once: true
+      when: is_mikrotik|default(false)
 
     - name: Generar nombre del archivo de backup
       ansible.builtin.set_fact:
         remote_filename: "{{ backup_prefix }}_{{ inventory_hostname }}_{{ backup_timestamp }}.{{ 'rsc' if backup_format == 'export' else 'backup' }}"
-      when: is_mikrotik
+      when: is_mikrotik|default(false)
 
     - name: Crear backup de exportación (formato texto)
       ansible.netcommon.cli_command:
         command: >
           /export file={{ remote_filename.split('.')[0] }}
           show-sensitive
-      when: is_mikrotik and backup_format == "export"
+      when: is_mikrotik|default(false) and backup_format == "export"
 
     - name: Crear backup binario
       ansible.netcommon.cli_command:
         command: >
           /system backup save name={{ remote_filename }}
-      when: is_mikrotik and backup_format == "backup"
+      when: is_mikrotik|default(false) and backup_format == "backup"
 
     - name: Esperar a que se complete el backup
       ansible.builtin.pause:
         seconds: 5
-      when: is_mikrotik
+      when: is_mikrotik|default(false)
 
     - name: Verificar lista de backups en el router
       ansible.netcommon.cli_command:
         command: /file print where name~"{{ backup_prefix }}"
       register: backup_list
-      when: is_mikrotik
+      when: is_mikrotik|default(false)
 
     - name: Mostrar información de los backups creados
       ansible.builtin.debug:
@@ -52,4 +54,4 @@
           Nombre del archivo: {{ remote_filename }}
           Backups actuales en el router:
           {{ backup_list.stdout_lines }}
-      when: is_mikrotik
+      when: is_mikrotik|default(false)
