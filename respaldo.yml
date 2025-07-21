@@ -1,38 +1,76 @@
 ---
-- name: Respaldar configuración MikroTik y descargar desde AWX
+- name: Backup de configuración de routers MikroTik
   hosts: all
   gather_facts: no
 
   vars:
-    backup_dir: "./respaldos_mikrotik"
-    backup_filename: "backup_config.rsc"
+    backup_dir: "/backups/mikrotik"
+    backup_format: "backup"  # Puede ser "backup" o "export"
 
   tasks:
-    - name: Crear carpeta local para respaldos
-      local_action: file
-        path={{ backup_dir }}
-        state=directory
-        mode=0755
+    - name: Crear directorio de backups si no existe
+      ansible.builtin.file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+      when: inventory_hostname == play_hosts[0]
+      delegate_to: localhost
 
-    - name: Generar respaldo en router MikroTik
+    - name: Obtener fecha y hora para el nombre del archivo
+      ansible.builtin.set_fact:
+        backup_timestamp: "{{ ansible_date_time.iso8601_basic_short }}"
+
+    - name: Generar nombre del archivo de backup
+      ansible.builtin.set_fact:
+        backup_filename: "{{ backup_dir }}/{{ inventory_hostname }}_{{ backup_timestamp }}.{{ backup_format }}.rsc"
+
+    - name: Ejecutar comando de backup/export
       ansible.netcommon.cli_command:
-        command: "/export file={{ backup_filename }}"
+        command: >
+          /export file={{ inventory_hostname }}_{{ backup_timestamp }}
+          show-sensitive
+      when: backup_format == "export"
 
-    - name: Esperar 10 segundos para asegurar creación del respaldo
-      pause:
-        seconds: 10
-
-    - name: Descargar respaldo desde router MikroTik
-      ansible.builtin.fetch:
-        src: "{{ backup_filename }}"
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.rsc"
-        flat: yes
-
-    - name: Eliminar respaldo del router MikroTik
+    - name: Ejecutar comando de backup (formato binario)
       ansible.netcommon.cli_command:
-        command: "/file remove {{ backup_filename }}"
+        command: >
+          /system backup save name={{ inventory_hostname }}_{{ backup_timestamp }}.backup
+      when: backup_format == "backup"
 
-    - name: Confirmar éxito del respaldo
-      debug:
-        msg: "Respaldo del router {{ inventory_hostname }} descargado correctamente en AWX."
+    - name: Esperar a que se genere el archivo en el router
+      ansible.builtin.pause:
+        seconds: 5
 
+    - name: Descargar archivo de exportación
+      community.routeros.routeros_download:
+        src: "{{ inventory_hostname }}_{{ backup_timestamp }}.rsc"
+        dest: "{{ backup_filename }}"
+        host: "{{ inventory_hostname }}"
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+      when: backup_format == "export"
+
+    - name: Descargar archivo de backup (binario)
+      community.routeros.routeros_download:
+        src: "{{ inventory_hostname }}_{{ backup_timestamp }}.backup"
+        dest: "{{ backup_filename }}"
+        host: "{{ inventory_hostname }}"
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+      when: backup_format == "backup"
+
+    - name: Eliminar archivo temporal del router
+      ansible.netcommon.cli_command:
+        command: >
+          /file remove [find name~"{{ inventory_hostname }}_{{ backup_timestamp }}"] 
+
+    - name: Verificar archivo descargado
+      ansible.builtin.stat:
+        path: "{{ backup_filename }}"
+      register: backup_file
+      delegate_to: localhost
+
+    - name: Mostrar ubicación del backup
+      ansible.builtin.debug:
+        msg: "Backup guardado en {{ backup_filename }}"
+      when: backup_file.stat.exists
