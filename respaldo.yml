@@ -1,19 +1,24 @@
 ---
-- name: Backup y descarga de configuraciones MikroTik
+- name: Crear respaldo y descargar desde MikroTik
   hosts: all
   gather_facts: no
 
   tasks:
-    - name: Generar archivo de respaldo (.rsc) en el router
+    - name: Crear archivo de respaldo en formato .backup
       community.routeros.command:
         commands:
-          - /system backup save name={{ inventory_hostname }}_backup.rsc
+          - /system backup save name={{ inventory_hostname }}_backup
       register: backup_result
       ignore_errors: yes
 
-    - name: Descargar backup al servidor AWX
-      community.routeros.fetch:
-        src: "{{ inventory_hostname }}_backup.rsc"
-        dest: "{{ playbook_dir }}/backups/"  # Ruta dentro del proyecto AWX
+    - name: Descargar el respaldo del router hacia el servidor Ansible
+      fetch:
+        src: "{{ inventory_hostname }}_backup.backup"
+        dest: "./backups/{{ inventory_hostname }}_backup.backup"
         flat: yes
-      when: backup_result is not skipped
+      when: backup_result is succeeded
+
+    - name: Mostrar enlace para descargar respaldo
+      debug:
+        msg: "El respaldo está disponible en: http://192.168.160.105/backups/{{ inventory_hostname }}_backup.backup"
+      when: backup_result is succeeded
