@@ -1,24 +1,40 @@
 ---
+# Playbook: Respaldar MikroTik y descargarlo al servidor Ansible
+
 - name: Crear respaldo y descargar desde MikroTik
   hosts: all
   gather_facts: no
 
   tasks:
-    - name: Crear archivo de respaldo en formato .backup
+    - name: Crear archivo de respaldo del sistema (.backup)
       community.routeros.command:
         commands:
-          - /system backup save name={{ inventory_hostname }}_backup.backup
+          - /system backup save name={{ inventory_hostname }}_backup
       register: backup_result
       ignore_errors: yes
 
-    - name: Descargar el respaldo del router hacia el servidor Ansible
-      fetch:
-        src: "{{ inventory_hostname }}_backup.backup"
+    - name: Copiar respaldo al servidor Ansible (vía SCP)
+      ansible.netcommon.net_get:
+        src: "/{{ inventory_hostname }}_backup.backup"
         dest: "./backups/{{ inventory_hostname }}_backup.backup"
-        flat: yes
+        protocol: scp
       when: backup_result is succeeded
 
     - name: Mostrar enlace para descargar respaldo
       debug:
         msg: "El respaldo está disponible en: http://192.168.160.105/backups/{{ inventory_hostname }}_backup.backup"
+      when: backup_result is succeeded
+
+    # Opcional: exportar configuración en texto legible (.rsc)
+    - name: Exportar configuración en texto (.rsc)
+      community.routeros.command:
+        commands:
+          - /export show-sensitive file={{ inventory_hostname }}_config
+      when: backup_result is succeeded
+
+    - name: Copiar archivo de configuración .rsc
+      ansible.netcommon.net_get:
+        src: "/{{ inventory_hostname }}_config.rsc"
+        dest: "./backups/{{ inventory_hostname }}_config.rsc"
+        protocol: scp
       when: backup_result is succeeded
