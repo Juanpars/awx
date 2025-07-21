@@ -1,52 +1,25 @@
 ---
-- name: Backup MikroTik Router Configuration
+- name: Respaldar configuración de router MikroTik
   hosts: all
   gather_facts: no
+  connection: network_cli
+
   vars:
-    backup_dir: "/home/awx/respaldos_mikrotik"
-    backup_name: "backup-{{ ansible_date_time.iso8601 }}"
+    backup_file: "mikrotik-backup-{{ inventory_hostname }}-{{ ansible_date_time.date }}.backup"
 
   tasks:
-    - name: Verificar directorio de backups
-      ansible.builtin.stat:
-        path: "{{ backup_dir }}"
-      register: dir_exists
-      delegate_to: localhost
-
-    - name: Error si el directorio no existe
-      ansible.builtin.fail:
-        msg: "ERROR: Crear manualmente el directorio '{{ backup_dir }}' y dar permisos al usuario 'awx'."
-      when: not dir_exists.stat.exists
-      delegate_to: localhost
-
-    - name: Generar backup en MikroTik
+    - name: Crear backup en router MikroTik
       community.routeros.command:
         commands:
-          - /system backup save name={{ backup_name }}.backup
-          - /export file={{ backup_name }}
-        username: "{{ ansible_user }}"
-        password: "{{ ansible_password }}"
-        host: "{{ ansible_host }}"
+          - "/system backup save name={{ backup_file }} dont-encrypt=yes"
 
-    - name: Descargar .backup
-      ansible.builtin.fetch:
-        src: "{{ backup_name }}.backup"
-        dest: "{{ backup_dir }}/"
-        flat: yes
-      delegate_to: localhost
+    - name: Descargar backup desde router MikroTik
+      ansible.netcommon.net_get:
+        src: "{{ backup_file }}"
+        dest: "backups/{{ backup_file }}"
+        protocol: scp
 
-    - name: Descargar .rsc
-      ansible.builtin.fetch:
-        src: "{{ backup_name }}.rsc"
-        dest: "{{ backup_dir }}/"
-        flat: yes
-      delegate_to: localhost
-
-    - name: Limpiar archivos temporales en el router
+    - name: Eliminar backup del router MikroTik después de descarga
       community.routeros.command:
         commands:
-          - /file remove {{ backup_name }}.backup
-          - /file remove {{ backup_name }}.rsc
-        username: "{{ ansible_user }}"
-        password: "{{ ansible_password }}"
-        host: "{{ ansible_host }}"
+          - "/file remove {{ backup_file }}"
