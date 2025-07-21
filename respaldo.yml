@@ -1,17 +1,12 @@
 ---
 - name: Crear respaldo de configuración en MikroTik
-  hosts: all  # Todos los hosts del inventario
-  gather_facts: no  # No recolectar información innecesaria
+  hosts: all
+  gather_facts: no  # No se necesitan facts
 
   tasks:
     - name: Generar archivo de respaldo (.rsc) en el router
       community.routeros.command:
         commands:
-          - /system backup save name={{ inventory_hostname }}_backup_{{ ansible_date_time.date }}.rsc
+          - /system backup save name={{ inventory_hostname }}_backup.rsc
       register: backup_result
-      ignore_errors: yes  # Continúa aunque falle en algún dispositivo
-
-    - name: Mostrar resultado del backup
-      ansible.builtin.debug:
-        var: backup_result
-      when: backup_result is not skipped
+      ignore_errors: yes
