@@ -1,30 +1,17 @@
 ---
-- name: Backup MikroTik configurations
-  hosts: all  # Aplica a todos los hosts del inventario
-  gather_facts: no  # No requiere facts de Ansible
-  vars:
-    backup_dir: "/opt/mikrotik_backups"  # Ruta donde se guardarán los backups
+- name: Crear respaldo de configuración en MikroTik
+  hosts: all  # Todos los hosts del inventario
+  gather_facts: no  # No recolectar información innecesaria
 
   tasks:
-    - name: Crear directorio de backups si no existe
-      ansible.builtin.file:
-        path: "{{ backup_dir }}"
-        state: directory
-        mode: '0755'
-      delegate_to: localhost
-      run_once: true
-
-    - name: Ejecutar backup en MikroTik (generar archivo .rsc)
+    - name: Generar archivo de respaldo (.rsc) en el router
       community.routeros.command:
         commands:
           - /system backup save name={{ inventory_hostname }}_backup_{{ ansible_date_time.date }}.rsc
       register: backup_result
-      ignore_errors: yes  # Continúa si hay errores en algún dispositivo
+      ignore_errors: yes  # Continúa aunque falle en algún dispositivo
 
-    - name: Descargar el archivo de backup a AWX
-      community.routeros.fetch:
-        src: "{{ inventory_hostname }}_backup_{{ ansible_date_time.date }}.rsc"
-        dest: "{{ backup_dir }}/"
-        flat: yes  # Mantiene el nombre original del archivo
-      delegate_to: localhost
+    - name: Mostrar resultado del backup
+      ansible.builtin.debug:
+        var: backup_result
       when: backup_result is not skipped
