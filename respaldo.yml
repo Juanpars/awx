@@ -1,7 +1,14 @@
 ---
-# Playbook: Crear respaldo y mostrar link de descarga directamente desde el MikroTik
+# Playbook: Crear respaldo en MikroTik y obtener enlace HTTP
+# Requisitos en el router:
+#   /ip service set www enabled=yes      # habilitar WebFig/HTTP
+#   RouterOS v7.7 o superior (para descargar con /file/…?download=1)
+#
+# Resultado: tras ejecutar el playbook verás un mensaje como
+#   Descarga el respaldo vía HTTP: http://192.168.160.104/file/192.168.160.104_backup.backup?download=1
+# que puedes abrir en un navegador para obtener el archivo.
 
-- name: Crear respaldo y entregar enlace directo
+- name: Crear respaldo y mostrar enlace HTTP
   hosts: all
   gather_facts: no
 
@@ -13,20 +20,7 @@
       register: backup_result
       ignore_errors: yes
 
-    - name: Mostrar enlace FTP para descargar respaldo
+    - name: Mostrar enlace HTTP para descargar respaldo
       debug:
-        msg: "Descarga el respaldo desde: ftp://{{ inventory_hostname }}/{{ inventory_hostname }}_backup.backup"
+        msg: "Descarga el respaldo vía HTTP: http://{{ inventory_hostname }}/file/{{ inventory_hostname }}_backup.backup?download=1"
       when: backup_result is succeeded
-
-    # Opcional: exportar configuración en texto (.rsc) y mostrar enlace
-    - name: Exportar configuración en texto (.rsc)
-      community.routeros.command:
-        commands:
-          - /export show-sensitive file={{ inventory_hostname }}_config
-      when: backup_result is succeeded
-
-    - name: Mostrar enlace FTP para descargar .rsc
-      debug:
-        msg: "Descarga la configuración desde: ftp://{{ inventory_hostname }}/{{ inventory_hostname }}_config.rsc"
-      when: backup_result is succeeded
-
