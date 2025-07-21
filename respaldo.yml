@@ -14,24 +14,29 @@
         state=directory
         mode=0755
 
-    - name: Generar archivo de respaldo (.rsc) en router en raíz
+    - name: Generar archivo de respaldo (.rsc) en router (formato explícito)
       ansible.netcommon.cli_command:
-        command: "/export file={{ backup_filename }}"
+        command: "/export file={{ backup_filename }} verbose"
+      register: export_result
 
-    - name: Esperar que se genere el archivo correctamente
-      pause:
-        seconds: 5
-
-    - name: Verificar existencia del respaldo en el router
-      ansible.netcommon.cli_command:
-        command: "/file print without-paging"
-      register: files_on_router
-
-    - name: Mostrar archivos existentes en router (para depuración)
+    - name: Mostrar salida del comando export (depuración)
       debug:
-        var: files_on_router.stdout_lines
+        var: export_result.stdout_lines
 
-    - name: Descargar respaldo desde el router (con ruta absoluta)
+    - name: Esperar para asegurar generación del respaldo
+      pause:
+        seconds: 10
+
+    - name: Verificar existencia del archivo .rsc explícitamente
+      ansible.netcommon.cli_command:
+        command: "/file print detail"
+      register: all_files
+
+    - name: Mostrar listado completo de archivos en router (depuración)
+      debug:
+        var: all_files.stdout_lines
+
+    - name: Descargar respaldo desde el router
       ansible.builtin.fetch:
         src: "{{ backup_filename }}"
         dest: "{{ backup_dir }}/{{ inventory_hostname }}-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.rsc"
@@ -44,3 +49,4 @@
     - name: Confirmar respaldo exitoso
       debug:
         msg: "Respaldo del router {{ inventory_hostname }} almacenado correctamente."
+
