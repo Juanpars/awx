@@ -1,5 +1,5 @@
 ---
-- name: Configurar Syslog en MikroTik para errores
+- name: Configurar syslog remoto solo para errores en MikroTik
   hosts: all
   gather_facts: no
 
@@ -7,32 +7,46 @@
     syslog_server: "10.10.8.132"
     syslog_action_name: "errorSyslog"
     syslog_topics: "error"
+    syslog_port: 514
 
   tasks:
-    - name: Crear acción para enviar logs al servidor syslog
+
+    - name: Eliminar acción anterior si existe (para limpieza)
       ansible.netcommon.cli_command:
         command: >
-          /system logging action add name={{ syslog_action_name }} target=remote remote={{ syslog_server }} remote-port=514
+          /system logging action remove [find name="{{ syslog_action_name }}"]
+      ignore_errors: yes
 
-    - name: Configurar logging solo errores al servidor syslog
+    - name: Crear nueva acción para enviar logs a servidor syslog
+      ansible.netcommon.cli_command:
+        command: >
+          /system logging action add name={{ syslog_action_name }} target=remote
+          remote={{ syslog_server }} remote-port={{ syslog_port }} syslog-severity=auto
+          syslog-facility=daemon bsd-syslog=no
+
+    - name: Agregar regla para enviar solo errores al servidor syslog
       ansible.netcommon.cli_command:
         command: >
           /system logging add topics={{ syslog_topics }} action={{ syslog_action_name }}
 
-    - name: Verificar acciones syslog
+    - name: Verificar acciones de logging configuradas
       ansible.netcommon.cli_command:
         command: /system logging action print
-      register: syslog_action_output
+      register: logging_actions
 
-    - name: Verificar configuración de logging
+    - name: Verificar reglas de logging configuradas
       ansible.netcommon.cli_command:
         command: /system logging print
-      register: syslog_logging_output
+      register: logging_rules
 
-    - name: Mostrar acciones syslog configuradas
+    - name: Mostrar acciones de logging en AWX
       debug:
-        var: syslog_action_output.stdout_lines
+        var: logging_actions.stdout_lines
 
-    - name: Mostrar configuración logging
+    - name: Mostrar reglas de logging en AWX
       debug:
-        var: syslog_logging_output.stdout_lines
+        var: logging_rules.stdout_lines
+
+    - name: Generar entrada de log de prueba tipo error
+      ansible.netcommon.cli_command:
+        command: /log error "Mensaje de prueba para verificar syslog remoto"
