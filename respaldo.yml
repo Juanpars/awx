@@ -1,7 +1,7 @@
 ---
-- name: Crear respaldo de configuración en MikroTik
+- name: Backup y descarga de configuraciones MikroTik
   hosts: all
-  gather_facts: no  # No se necesitan facts
+  gather_facts: no
 
   tasks:
     - name: Generar archivo de respaldo (.rsc) en el router
@@ -10,3 +10,10 @@
           - /system backup save name={{ inventory_hostname }}_backup.rsc
       register: backup_result
       ignore_errors: yes
+
+    - name: Descargar backup al servidor AWX
+      community.routeros.fetch:
+        src: "{{ inventory_hostname }}_backup.rsc"
+        dest: "{{ playbook_dir }}/backups/"  # Ruta dentro del proyecto AWX
+        flat: yes
+      when: backup_result is not skipped
