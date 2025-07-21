@@ -1,52 +1,46 @@
 ---
-- name: Backup local en TODOS los routers MikroTik
-  hosts: all  # Se ejecutará en todos los dispositivos
+- name: Backup MikroTik Router Configuration
+  hosts: all  # Define el host en tu inventario
   gather_facts: no
-  connection: network_cli
-
   vars:
-    backup_filename: "autobackup-{{ ansible_date_time.iso8601_basic_short }}.backup"
-    max_backups: 3  # Número máximo de backups a mantener
-    mikrotik_backup_prefix: "autobackup-"  # Prefijo para identificar backups automáticos
-
+    backup_dir: "/opt/mikrotik_backups"
+    backup_name: "backup-{{ ansible_date_time.date }}"
+  
   tasks:
-    - name: Verificar si el dispositivo es MikroTik
+    - name: Crear directorio de backups si no existe
+      ansible.builtin.file:
+        path: "{{ backup_dir }}"
+        state: directory
+        mode: '0755'
+  
+    - name: Generar y descargar backup del MikroTik (vía SSH)
       community.routeros.command:
-        commands: /system identity print
-      register: check_mikrotik
-      ignore_errors: yes
-      changed_when: false
-
-    - name: Realizar backup (solo en dispositivos MikroTik)
-      block:
-        - name: Crear nuevo backup
-          community.routeros.command:
-            commands:
-              - /system backup save name={{ backup_filename }}
-              - /file print where name={{ backup_filename }}
-          register: backup_result
-
-        - name: Listar backups automáticos existentes
-          community.routeros.command:
-            commands: /file print where name~"^{{ mikrotik_backup_prefix }}"
-          register: existing_backups
-
-        - name: Eliminar backups excedentes (manteniendo los últimos {{ max_backups }})
-          community.routeros.command:
-            commands: /file remove {{ item.name }}
-          loop: "{{ existing_backups.stdout[0] | community.routeros.parse_resources(existing_backups.ros_facts[0]) | slice(max_backups) }}"
-          when: existing_backups.stdout[0] | length > max_backups
-
-        - name: Mostrar resumen
-          ansible.builtin.debug:
-            msg: |
-              Backup completado en {{ inventory_hostname }}
-              Nuevo backup: {{ backup_filename }}
-              Backups actuales:
-              {{ existing_backups.stdout[0] | community.routeros.parse_resources(existing_backups.ros_facts[0]) }}
-      when: "'MikroTik' in check_mikrotik.stdout[0]"
-
-    - name: Mensaje para dispositivos no MikroTik
-      ansible.builtin.debug:
-        msg: "El dispositivo {{ inventory_hostname }} no es un MikroTik, se omite"
-      when: "'MikroTik' not in check_mikrotik.stdout[0]"
+        commands:
+          - /system backup save name={{ backup_name }}.backup
+          - /export file={{ backup_name }}
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+        host: "{{ ansible_host }}"
+  
+    - name: Descargar archivo .backup al servidor AWX
+      ansible.builtin.fetch:
+        src: "{{ backup_name }}.backup"
+        dest: "{{ backup_dir }}/"
+        flat: yes  # Evita estructura de carpetas adicionales
+      delegate_to: localhost
+  
+    - name: Descargar archivo .rsc (export) al servidor AWX
+      ansible.builtin.fetch:
+        src: "{{ backup_name }}.rsc"
+        dest: "{{ backup_dir }}/"
+        flat: yes
+      delegate_to: localhost
+  
+    - name: Eliminar archivos temporales del router
+      community.routeros.command:
+        commands:
+          - /file remove {{ backup_name }}.backup
+          - /file remove {{ backup_name }}.rsc
+        username: "{{ ansible_user }}"
+        password: "{{ ansible_password }}"
+        host: "{{ ansible_host }}"
