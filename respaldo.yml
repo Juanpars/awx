@@ -1,5 +1,5 @@
 ---
-- name: Respaldar configuración de routers MikroTik
+- name: Respaldar configuración MikroTik y descargar desde AWX
   hosts: all
   gather_facts: no
 
@@ -14,39 +14,25 @@
         state=directory
         mode=0755
 
-    - name: Generar archivo de respaldo (.rsc) en router (formato explícito)
+    - name: Generar respaldo en router MikroTik
       ansible.netcommon.cli_command:
-        command: "/export file={{ backup_filename }} verbose"
-      register: export_result
+        command: "/export file={{ backup_filename }}"
 
-    - name: Mostrar salida del comando export (depuración)
-      debug:
-        var: export_result.stdout_lines
-
-    - name: Esperar para asegurar generación del respaldo
+    - name: Esperar 10 segundos para asegurar creación del respaldo
       pause:
         seconds: 10
 
-    - name: Verificar existencia del archivo .rsc explícitamente
-      ansible.netcommon.cli_command:
-        command: "/file print detail"
-      register: all_files
-
-    - name: Mostrar listado completo de archivos en router (depuración)
-      debug:
-        var: all_files.stdout_lines
-
-    - name: Descargar respaldo desde el router
+    - name: Descargar respaldo desde router MikroTik
       ansible.builtin.fetch:
         src: "{{ backup_filename }}"
         dest: "{{ backup_dir }}/{{ inventory_hostname }}-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.rsc"
         flat: yes
 
-    - name: Eliminar archivo de respaldo del router
+    - name: Eliminar respaldo del router MikroTik
       ansible.netcommon.cli_command:
         command: "/file remove {{ backup_filename }}"
 
-    - name: Confirmar respaldo exitoso
+    - name: Confirmar éxito del respaldo
       debug:
-        msg: "Respaldo del router {{ inventory_hostname }} almacenado correctamente."
+        msg: "Respaldo del router {{ inventory_hostname }} descargado correctamente en AWX."
 
