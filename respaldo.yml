@@ -7,7 +7,7 @@
     - name: Crear archivo de respaldo en formato .backup
       community.routeros.command:
         commands:
-          - /system backup save name={{ inventory_hostname }}_backup
+          - /system backup save name={{ inventory_hostname }}_backup.backup
       register: backup_result
       ignore_errors: yes
 
