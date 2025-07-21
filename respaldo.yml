@@ -1,69 +1,52 @@
 ---
-- name: Crear y Verificar Backup Local en MikroTik
-  hosts: all
+- name: Backup local en TODOS los routers MikroTik
+  hosts: all  # Se ejecutará en todos los dispositivos
   gather_facts: no
+  connection: network_cli
+
   vars:
-    backup_format: "export"
-    backup_prefix: "respaldo_awx"
+    backup_filename: "autobackup-{{ ansible_date_time.iso8601_basic_short }}.backup"
+    max_backups: 3  # Número máximo de backups a mantener
+    mikrotik_backup_prefix: "autobackup-"  # Prefijo para identificar backups automáticos
 
   tasks:
-    - name: Verificar si es MikroTik
-      ansible.builtin.set_fact:
-        is_mikrotik: "{{ ansible_network_os is defined and ansible_network_os == 'routeros' }}"
-    
-    - name: Generar timestamp
-      ansible.builtin.set_fact:
-        backup_timestamp: "{{ '%Y%m%d%H%M%S' | strftime }}"
-      delegate_to: localhost
-      run_once: true
-      when: is_mikrotik|default(false)
+    - name: Verificar si el dispositivo es MikroTik
+      community.routeros.command:
+        commands: /system identity print
+      register: check_mikrotik
+      ignore_errors: yes
+      changed_when: false
 
-    - name: Generar nombre del archivo
-      ansible.builtin.set_fact:
-        remote_filename: "{{ backup_prefix }}_{{ inventory_hostname }}_{{ backup_timestamp }}.{{ 'rsc' if backup_format == 'export' else 'backup' }}"
-      when: is_mikrotik|default(false)
+    - name: Realizar backup (solo en dispositivos MikroTik)
+      block:
+        - name: Crear nuevo backup
+          community.routeros.command:
+            commands:
+              - /system backup save name={{ backup_filename }}
+              - /file print where name={{ backup_filename }}
+          register: backup_result
 
-    - name: Crear backup (export)
-      ansible.netcommon.cli_command:
-        command: >
-          /export file={{ remote_filename.split('.')[0] }}
-          show-sensitive
-      register: export_result
-      when: is_mikrotik|default(false) and backup_format == "export"
+        - name: Listar backups automáticos existentes
+          community.routeros.command:
+            commands: /file print where name~"^{{ mikrotik_backup_prefix }}"
+          register: existing_backups
 
-    - name: Crear backup (binario)
-      ansible.netcommon.cli_command:
-        command: >
-          /system backup save name={{ remote_filename }}
-      register: backup_result
-      when: is_mikrotik|default(false) and backup_format == "backup"
+        - name: Eliminar backups excedentes (manteniendo los últimos {{ max_backups }})
+          community.routeros.command:
+            commands: /file remove {{ item.name }}
+          loop: "{{ existing_backups.stdout[0] | community.routeros.parse_resources(existing_backups.ros_facts[0]) | slice(max_backups) }}"
+          when: existing_backups.stdout[0] | length > max_backups
 
-    - name: Esperar 5 segundos
-      ansible.builtin.pause:
-        seconds: 5
-      when: is_mikrotik|default(false)
+        - name: Mostrar resumen
+          ansible.builtin.debug:
+            msg: |
+              Backup completado en {{ inventory_hostname }}
+              Nuevo backup: {{ backup_filename }}
+              Backups actuales:
+              {{ existing_backups.stdout[0] | community.routeros.parse_resources(existing_backups.ros_facts[0]) }}
+      when: "'MikroTik' in check_mikrotik.stdout[0]"
 
-    - name: Verificar archivos en el router
-      ansible.netcommon.cli_command:
-        command: /file print
-      register: all_files
-      when: is_mikrotik|default(false)
-
-    - name: Verificar archivos de backup
-      ansible.netcommon.cli_command:
-        command: /file print where name~"{{ backup_prefix }}"
-      register: backup_files
-      when: is_mikrotik|default(false)
-
-    - name: Mostrar resultados completos
+    - name: Mensaje para dispositivos no MikroTik
       ansible.builtin.debug:
-        msg: |
-          Resultado del comando export/backup:
-          {{ export_result.stdout if backup_format == 'export' else backup_result.stdout }}
-
-          Todos los archivos en el router:
-          {{ all_files.stdout_lines }}
-
-          Archivos de backup encontrados:
-          {{ backup_files.stdout_lines }}
-      when: is_mikrotik|default(false)
+        msg: "El dispositivo {{ inventory_hostname }} no es un MikroTik, se omite"
+      when: "'MikroTik' not in check_mikrotik.stdout[0]"
