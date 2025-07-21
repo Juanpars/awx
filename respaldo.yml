@@ -1,9 +1,9 @@
 ---
-- name: Backup de configuración de routers MikroTik (versión SCP)
+- name: Backup de configuración de routers MikroTik (versión SCP corregida)
   hosts: all
   gather_facts: no
   vars:
-    backup_dir: "/backups/mikrotik"
+    backup_dir: "~/backups/mikrotik"  # Directorio en el home del usuario
     backup_format: "export"  # "backup" o "export"
     ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
 
