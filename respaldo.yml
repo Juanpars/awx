@@ -1,19 +1,20 @@
 ---
 - name: Backup MikroTik Router Configuration
-  hosts: all  # Define el host en tu inventario
+  hosts: all
   gather_facts: no
   vars:
-    backup_dir: "/opt/mikrotik_backups"
-    backup_name: "backup-{{ ansible_date_time.date }}"
-  
+    backup_dir: "/home/awx/respaldos_mikrotik"  # Ruta específica en tu servidor AWX
+    backup_name: "backup-{{ ansible_date_time.iso8601 }}"  # Incluye fecha y hora
+
   tasks:
-    - name: Crear directorio de backups si no existe
+    - name: Crear directorio de backups (si no existe)
       ansible.builtin.file:
         path: "{{ backup_dir }}"
         state: directory
         mode: '0755'
-  
-    - name: Generar y descargar backup del MikroTik (vía SSH)
+      delegate_to: localhost  # Ejecuta en el servidor AWX, no en el MikroTik
+
+    - name: Generar backup y exportar configuración (MikroTik)
       community.routeros.command:
         commands:
           - /system backup save name={{ backup_name }}.backup
@@ -21,21 +22,21 @@
         username: "{{ ansible_user }}"
         password: "{{ ansible_password }}"
         host: "{{ ansible_host }}"
-  
+
     - name: Descargar archivo .backup al servidor AWX
       ansible.builtin.fetch:
         src: "{{ backup_name }}.backup"
         dest: "{{ backup_dir }}/"
-        flat: yes  # Evita estructura de carpetas adicionales
+        flat: yes
       delegate_to: localhost
-  
-    - name: Descargar archivo .rsc (export) al servidor AWX
+
+    - name: Descargar archivo .rsc al servidor AWX
       ansible.builtin.fetch:
         src: "{{ backup_name }}.rsc"
         dest: "{{ backup_dir }}/"
         flat: yes
       delegate_to: localhost
-  
+
     - name: Eliminar archivos temporales del router
       community.routeros.command:
         commands:
