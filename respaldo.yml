@@ -3,18 +3,23 @@
   hosts: all
   gather_facts: no
   vars:
-    backup_dir: "/home/awx/respaldos_mikrotik"  # Ruta específica en tu servidor AWX
-    backup_name: "backup-{{ ansible_date_time.iso8601 }}"  # Incluye fecha y hora
+    backup_dir: "/home/awx/respaldos_mikrotik"
+    backup_name: "backup-{{ ansible_date_time.iso8601 }}"
 
   tasks:
-    - name: Crear directorio de backups (si no existe)
-      ansible.builtin.file:
+    - name: Verificar directorio de backups
+      ansible.builtin.stat:
         path: "{{ backup_dir }}"
-        state: directory
-        mode: '0755'
-      delegate_to: localhost  # Ejecuta en el servidor AWX, no en el MikroTik
+      register: dir_exists
+      delegate_to: localhost
 
-    - name: Generar backup y exportar configuración (MikroTik)
+    - name: Error si el directorio no existe
+      ansible.builtin.fail:
+        msg: "ERROR: Crear manualmente el directorio '{{ backup_dir }}' y dar permisos al usuario 'awx'."
+      when: not dir_exists.stat.exists
+      delegate_to: localhost
+
+    - name: Generar backup en MikroTik
       community.routeros.command:
         commands:
           - /system backup save name={{ backup_name }}.backup
@@ -23,21 +28,21 @@
         password: "{{ ansible_password }}"
         host: "{{ ansible_host }}"
 
-    - name: Descargar archivo .backup al servidor AWX
+    - name: Descargar .backup
       ansible.builtin.fetch:
         src: "{{ backup_name }}.backup"
         dest: "{{ backup_dir }}/"
         flat: yes
       delegate_to: localhost
 
-    - name: Descargar archivo .rsc al servidor AWX
+    - name: Descargar .rsc
       ansible.builtin.fetch:
         src: "{{ backup_name }}.rsc"
         dest: "{{ backup_dir }}/"
         flat: yes
       delegate_to: localhost
 
-    - name: Eliminar archivos temporales del router
+    - name: Limpiar archivos temporales en el router
       community.routeros.command:
         commands:
           - /file remove {{ backup_name }}.backup
