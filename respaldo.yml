@@ -1,26 +1,36 @@
 ---
-# Playbook: Crear respaldo en MikroTik y obtener enlace HTTP
-# Requisitos en el router:
-#   /ip service set www enabled=yes      # habilitar WebFig/HTTP
-#   RouterOS v7.7 o superior (para descargar con /file/…?download=1)
-#
-# Resultado: tras ejecutar el playbook verás un mensaje como
-#   Descarga el respaldo vía HTTP: http://192.168.160.104/file/192.168.160.104_backup.backup?download=1
-# que puedes abrir en un navegador para obtener el archivo.
-
-- name: Crear respaldo y mostrar enlace HTTP
-  hosts: all
+- name: Crear respaldo, copiar al servidor y publicar enlace
+  hosts: mikrotik
   gather_facts: no
 
+  vars:
+    web_root: "/var/www/html/backups"   # carpeta que expone tu servidor HTTP
+    server_ip: "192.168.160.105"         # IP del servidor Ansible/HTTP
+
   tasks:
+    ######################################################################
+    # 1) Crear el archivo .backup en el router
+    ######################################################################
     - name: Crear archivo de respaldo (.backup)
       community.routeros.command:
         commands:
           - /system backup save name={{ inventory_hostname }}_backup
       register: backup_result
-      ignore_errors: yes
 
+    ######################################################################
+    # 2) Copiarlo al servidor Ansible vía SCP (net_get necesita paramiko)
+    ######################################################################
+    - name: Copiar respaldo al servidor
+      ansible.netcommon.net_get:
+        src: "/{{ inventory_hostname }}_backup.backup"
+        dest: "{{ web_root }}/{{ inventory_hostname }}_backup.backup"
+        protocol: scp
+      when: backup_result is succeeded
+
+    ######################################################################
+    # 3) Mostrar la URL de descarga servida por el propio servidor
+    ######################################################################
     - name: Mostrar enlace HTTP para descargar respaldo
       debug:
-        msg: "Descarga el respaldo vía HTTP: http://{{ inventory_hostname }}/file/{{ inventory_hostname }}_backup.backup?download=1"
+        msg: "Descarga el respaldo: http://{{ server_ip }}/backups/{{ inventory_hostname }}_backup.backup"
       when: backup_result is succeeded
