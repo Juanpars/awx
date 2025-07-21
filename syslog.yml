@@ -1,0 +1,38 @@
+---
+- name: Configurar Syslog en MikroTik para errores
+  hosts: all
+  gather_facts: no
+
+  vars:
+    syslog_server: "10.10.8.132"
+    syslog_action_name: "errorSyslog"
+    syslog_topics: "error"
+
+  tasks:
+    - name: Crear acción para enviar logs al servidor syslog
+      ansible.netcommon.cli_command:
+        command: >
+          /system logging action add name={{ syslog_action_name }} target=remote remote={{ syslog_server }} remote-port=514
+
+    - name: Configurar logging solo errores al servidor syslog
+      ansible.netcommon.cli_command:
+        command: >
+          /system logging add topics={{ syslog_topics }} action={{ syslog_action_name }}
+
+    - name: Verificar acciones syslog
+      ansible.netcommon.cli_command:
+        command: /system logging action print
+      register: syslog_action_output
+
+    - name: Verificar configuración de logging
+      ansible.netcommon.cli_command:
+        command: /system logging print
+      register: syslog_logging_output
+
+    - name: Mostrar acciones syslog configuradas
+      debug:
+        var: syslog_action_output.stdout_lines
+
+    - name: Mostrar configuración logging
+      debug:
+        var: syslog_logging_output.stdout_lines
