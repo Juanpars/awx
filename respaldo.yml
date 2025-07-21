@@ -24,7 +24,7 @@
     - name: Descargar respaldo desde el router
       ansible.builtin.fetch:
         src: backup_config.rsc
-        dest: "{{ backup_dir }}/{{ inventory_hostname }}-{{ ansible_date_time.iso8601_basic }}.rsc"
+        dest: "{{ backup_dir }}/{{ inventory_hostname }}-{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}.rsc"
         flat: yes
 
     - name: Eliminar archivo de respaldo del router
