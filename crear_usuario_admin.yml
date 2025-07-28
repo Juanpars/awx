@@ -5,7 +5,7 @@
 
   vars:
     nuevo_usuario: "jramirez"
-    nueva_contrasena: "linux"
+    nueva_contrasena: "Porvenir46"
 
   tasks:
     - name: Crear grupo full si no existe
