@@ -1,28 +1,29 @@
 ---
-- name: Obtener direcciones IP (detalle) y nombre de cada MikroTik
-  hosts: all           # ← Grupo de tu inventario
+- name: Obtener IPs (detalle) y el nombre de cada MikroTik
+  hosts: all
   gather_facts: false
 
-  # Forzamos la conexión de red adecuada
   connection: ansible.netcommon.network_cli
   vars:
     ansible_network_os: community.routeros.routeros
 
   tasks:
     - name: Listar IPs con todo el detalle
-      community.routeros.command:      # ← Módulo correcto
-        commands: /ip/address/print detail
+      community.routeros.command:
+        commands:
+          - /ip/address/print detail without-paging
       register: ip_detail
 
     - name: Leer el nombre (identity) del router
       community.routeros.command:
-        commands: /system/identity/print
+        commands:
+          - /system/identity/print
       register: router_name
 
-    - name: Mostrar IPs
+    - name: Mostrar IPs (salida limpia)
       debug:
-        var: ip_detail.stdout          # Salida completa (lista de strings)
+        var: ip_detail.stdout_lines   # cada línea ya viene separada
 
     - name: Mostrar nombre del router
       debug:
-        var: router_name.stdout
+        var: router_name.stdout_lines
