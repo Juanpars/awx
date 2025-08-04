@@ -1,29 +1,31 @@
 ---
-- name: Obtener IPs (detalle) y el nombre de cada MikroTik
+- name: Obtener información de IPs y detalles de routers MikroTik
   hosts: all
-  gather_facts: false
-
-  connection: ansible.netcommon.network_cli
-  vars:
-    ansible_network_os: community.routeros.routeros
-
+  gather_facts: no
+  connection: network_cli
+  
   tasks:
-    - name: Listar IPs con todo el detalle
-      community.routeros.command:
+    - name: Obtener información del sistema MikroTik
+      routeros_command:
         commands:
-          - /ip/address/print detail without-paging
-      register: ip_detail
+          - /system identity print
+          - /ip address print detail
+          - /system resource print
+      register: mikrotik_info
 
-    - name: Leer el nombre (identity) del router
-      community.routeros.command:
-        commands:
-          - /system/identity/print
-      register: router_name
-
-    - name: Mostrar IPs (salida limpia)
-      debug:
-        var: ip_detail.stdout_lines   # cada línea ya viene separada
-
-    - name: Mostrar nombre del router
-      debug:
-        var: router_name.stdout_lines
+    - name: Extraer y mostrar información relevante
+      block:
+        - name: Mostrar información del router
+          debug:
+            msg: |
+              Inventario: {{ inventory_hostname }}
+              Nombre del Router: {{ mikrotik_info.stdout[0] | regex_replace('name: ', '') | trim }}
+              Direcciones IP:
+              {% for ip in mikrotik_info.stdout[1].split('\n') %}
+              {% if ip and not ip.startswith('Flags') and not ip.startswith('Columns') %}
+                - {{ ip | regex_replace('\s+', ' ') }}
+              {% endif %}
+              {% endfor %}
+              Recursos:
+                {{ mikrotik_info.stdout[2] | regex_replace('\n', '\n    ') }}
+      when: mikrotik_info is defined and mikrotik_info.stdout is defined
