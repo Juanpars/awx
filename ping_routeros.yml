@@ -2,17 +2,14 @@
 - name: Obtener IPs y nombre de MikroTik
   hosts: all
   gather_facts: false
-  collections:
-    - community.routeros
-
   tasks:
-    - name: Obtener todas las direcciones IP de interfaces (detalle)
+    - name: Obtener IPs de interfaces
       community.routeros.routeros_command:
         commands:
           - /ip/address/print detail
       register: ip_address_detail
 
-    - name: Obtener nombre del router
+    - name: Obtener nombre de router
       community.routeros.routeros_command:
         commands:
           - /system/identity/print
