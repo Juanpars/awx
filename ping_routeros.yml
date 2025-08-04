@@ -1,21 +1,27 @@
 ---
-- name: Test MikroTik connectivity and gather router info
+- name: Obtener IPs y nombre de MikroTik
   hosts: all
-  gather_facts: no
+  gather_facts: false
+  collections:
+    - community.routeros
+
   tasks:
-    - name: Get MikroTik Router Identity
-      ansible.builtin.raw: "/system identity print"
-      register: router_identity
+    - name: Obtener todas las direcciones IP de interfaces (detalle)
+      community.routeros.routeros_command:
+        commands:
+          - /ip/address/print detail
+      register: ip_address_detail
 
-    - name: Display MikroTik Identity
+    - name: Obtener nombre del router
+      community.routeros.routeros_command:
+        commands:
+          - /system/identity/print
+      register: router_name
+
+    - name: Mostrar resultado IPs
       debug:
-        msg: "{{ router_identity.stdout }}"
+        msg: "{{ ip_address_detail.stdout }}"
 
-    - name: Get MikroTik IP Addresses
-      ansible.builtin.raw: "/ip address print detail"
-      register: ip_addresses
-
-    - name: Display MikroTik IP Addresses
+    - name: Mostrar nombre de router
       debug:
-        msg: "{{ ip_addresses.stdout }}"
-
+        msg: "{{ router_name.stdout }}"
