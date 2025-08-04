@@ -3,11 +3,28 @@
   hosts: all
   gather_facts: no
   tasks:
-    - name: Get IP addresses and router identity
+    - name: Get router identity
       ansible.netcommon.cli_command:
-        command: /system identity print; /ip address print detail
-      register: mikrotik_output
+        command: /system identity print
+      register: identity_output
 
-    - name: Show MikroTik output
+    - name: Show router identity (lines)
       debug:
-        var: mikrotik_output.stdout_lines
+        var: identity_output.stdout_lines
+
+    - name: Show router identity (raw)
+      debug:
+        var: identity_output.stdout
+
+    - name: Get IP addresses
+      ansible.netcommon.cli_command:
+        command: /ip address print detail
+      register: ip_output
+
+    - name: Show IP addresses (lines)
+      debug:
+        var: ip_output.stdout_lines
+
+    - name: Show IP addresses (raw)
+      debug:
+        var: ip_output.stdout
