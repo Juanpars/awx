@@ -1,30 +1,21 @@
 ---
-- name: Test MikroTik connectivity and get router identity
+- name: Test MikroTik connectivity and gather router info
   hosts: all
   gather_facts: no
   tasks:
-    - name: Get router identity
-      ansible.netcommon.cli_command:
-        command: /system identity print
-      register: identity_output
+    - name: Get MikroTik Router Identity
+      ansible.builtin.raw: "/system identity print"
+      register: router_identity
 
-    - name: Show router identity (lines)
+    - name: Display MikroTik Identity
       debug:
-        var: identity_output.stdout_lines
+        msg: "{{ router_identity.stdout }}"
 
-    - name: Show router identity (raw)
+    - name: Get MikroTik IP Addresses
+      ansible.builtin.raw: "/ip address print detail"
+      register: ip_addresses
+
+    - name: Display MikroTik IP Addresses
       debug:
-        var: identity_output.stdout
+        msg: "{{ ip_addresses.stdout }}"
 
-    - name: Get IP addresses
-      ansible.netcommon.cli_command:
-        command: /ip address print detail
-      register: ip_output
-
-    - name: Show IP addresses (lines)
-      debug:
-        var: ip_output.stdout_lines
-
-    - name: Show IP addresses (raw)
-      debug:
-        var: ip_output.stdout
