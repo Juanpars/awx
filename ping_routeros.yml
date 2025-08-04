@@ -5,4 +5,4 @@
   tasks:
     - name: Run command on MikroTik
       ansible.netcommon.cli_command:
-        command: /system resource print
+        command: /ip address print detail
