@@ -1,8 +1,13 @@
 ---
-- name: Test MikroTik connectivity
+- name: Test MikroTik connectivity and get router identity
   hosts: all
   gather_facts: no
   tasks:
-    - name: Run command on MikroTik
+    - name: Get IP addresses and router identity
       ansible.netcommon.cli_command:
-        command: /ip address print detail
+        command: /system identity print; /ip address print detail
+      register: mikrotik_output
+
+    - name: Show MikroTik output
+      debug:
+        var: mikrotik_output.stdout_lines
