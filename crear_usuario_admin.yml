@@ -4,8 +4,8 @@
   gather_facts: no
 
   vars:
-    nuevo_usuario: "jramirez"
-    nueva_contrasena: "Porvenir46"
+    nuevo_usuario: "mikrowisp"
+    nueva_contrasena: "OpenTI2025_."
 
   tasks:
     - name: Crear grupo full si no existe
